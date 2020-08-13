@@ -3,6 +3,7 @@
     {
       "cardId": 0,
       "ocName": "Inflation Alex",
+      "abilityID": "0",
       "baseHP": "100",
       "baseStars": "5",
       "baseAttack": "3",
@@ -15,6 +16,7 @@
     {
       "cardId": 2,
       "ocName": "Test 2",
+      "abilityID": "0",
       "lore": "",
       "baseHP": "100",
       "baseStars": "5",
@@ -22,12 +24,14 @@
       "baseDefense": "10",
       "baseSpeed": "2",
       "baseLuck": "4",
+      "abilityID": "1",
       "artPath": "assets/OC/",
       "lorePath": "assets/OC/"
     },
     {
       "cardId": 3,
       "ocName": "Test 3",
+      "abilityID": "0",
       "lore": "",
       "baseHP": "100",
       "baseStars": "5",
@@ -41,6 +45,7 @@
     {
       "cardId": 4,
       "ocName": "Test 4",
+      "abilityID": "0",
       "lore": "",
       "baseHP": "100",
       "baseStars": "5",
@@ -54,6 +59,7 @@
     {
       "cardId": 5,
       "ocName": "Test 5",
+      "abilityID": "0",
       "lore": "",
       "baseHP": "100",
       "baseStars": "5",
