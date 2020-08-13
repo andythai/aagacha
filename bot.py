@@ -31,6 +31,7 @@ class OC_Client(discord.Client):
             return
 
         # Check if message is relevant to the OC game
+        # TODO: move to a separate function
         if message.content.startswith('!oc'):
             
             split_message = str(message.content).split()
