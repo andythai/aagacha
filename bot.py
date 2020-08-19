@@ -1,5 +1,5 @@
 # bot.py
-from modules import process_data
+from modules import data_processing
 from modules import oc
 
 import os
@@ -13,7 +13,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
 # Load OC data
-OC_DATA = process_data.load_json()
+OC_DATA = data_processing.load_json()
 
 
 class OC_Client(discord.Client):
