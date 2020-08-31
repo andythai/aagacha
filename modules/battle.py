@@ -1,4 +1,4 @@
-import oc
+from modules import oc
 
 class Battle:
 	"""Class to represent the battlefield game arena."""
@@ -34,13 +34,15 @@ class Battle:
 		# Order by OCs with fast actions in order of highest to lowest speed
 		# Break same speed tiebreakers by looking at luck
 		# Break same luck tiebreakers with a 50% roll.
+		turn_order = self.get_party(0) + self.get_party(1)
+		turn_order.sort(key=lambda x: x.SPD, reverse=True)  # Basic sorting, no tiebreaker
 		
 		# Order by OCs with fast actions in order of highest to lowest speed
 		# Break same speed tiebreakers by looking at luck
 		# Break same luck tiebreakers with a 50% roll.
 		
 		# Return a list of the OCs ordered from first turn order to last turn order.
-		return []
+		return turn_order
 		
 	"""Getter function to retrieve a list of a user's party
 	party parameter is an int, 0 for A or 1 for B"""

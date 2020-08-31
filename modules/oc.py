@@ -3,6 +3,7 @@ class OC:
 	def __init__(self, data=None, ID=None):
 		# OC card stats and information
 		self.name = ""      # String representation of OC name
+		self.owner = ""     # User
 		self.stars = None	# Number of stars / rarity
 		self.oc_ID = None   # ID number of OC in dex
 		
@@ -50,7 +51,21 @@ class OC:
 		self.ability2 = data[ID]['ability2']  # Special
 		
 		return
-		
+	
+	def show_current_stats(self):
+		"""Function to generate a string description for Discord output. 
+		Returns the art path and raw string to display as a Discord message."""
+		# Show stats
+		stats_text = '**STATS**\n' + '```CSS\n'
+		stats_text += 'HP: ' + str(self.current_HP) + ' / ' + str(self.max_HP) + '\n'
+		stats_text += 'Attack: ' + str(self.ATK) + '\n'
+		stats_text += 'Speed: ' + str(self.SPD) + '\n'
+		stats_text += 'Luck: ' + str(self.LUCK) + '\n'
+		stats_text += '```\n'
+
+		# Final raw string to be returned to Discord API
+		return self.art_path, stats_text
+	
 	def generate_dex_string(self):
 		"""Function to generate a string description for Discord output. 
 		Returns the art path and raw string to display as a Discord message."""
