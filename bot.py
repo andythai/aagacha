@@ -71,8 +71,8 @@ class OC_Client(discord.Client):
 			
 			# Preset battle parameters
 			field = battle.Battle()
-			party_A = [0, 3, 2]
-			party_B = [0, 2, 3]
+			party_A = [5, 8, 2]
+			party_B = [4, 3, 0]
 			field.setup(OC_DATA, party_A, party_B)
 
 			# Continue battle loop until triggered off
