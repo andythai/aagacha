@@ -8,6 +8,7 @@ import os
 import discord
 from dotenv import load_dotenv
 import asyncio
+import random
 
 # Load ENV variables (global)
 load_dotenv()
@@ -68,6 +69,7 @@ class OC_Client(discord.Client):
 			vs_divider = ':black_small_square::black_small_square::black_small_square::black_small_square::black_small_square::black_small_square::black_small_square:\n' + ':black_small_square::black_small_square::black_small_square::vs::black_small_square::black_small_square::black_small_square:\n' + ':black_small_square::black_small_square::black_small_square::black_small_square::black_small_square::black_small_square::black_small_square:\n'
 			ai_text = ':blue_circle::blue_circle: **AI Party** :blue_circle::blue_circle:'
 			turn_order_text = ':timer: **TURN ORDER:**'
+			spacing = '                            '
 			
 			# Preset battle parameters
 			field = battle.Battle()
@@ -78,22 +80,34 @@ class OC_Client(discord.Client):
 			# Continue battle loop until triggered off
 			is_battling = True
 			while is_battling:
-				# Attack queue [0 front|1 back], array indices correspond to 0: front, 1: back1, 2: back2
+				# Attack queue [0 front|1 back], array indices correspond to 0: front, 1: back1, 2: back2, -1: index is defeated
 				attack_queue_A = [None, None, None]
 				attack_queue_AI = [0, 0, 0]
 				
 				# Generate battlefield
 				party_A_OC = field.get_party(0)
+				party_B_OC = field.get_party(1)
+				
+				for i in range(len(party_A_OC)):
+					if not party_A_OC[i].enabled:
+						attack_queue_A[i] = -1
+					if not party_B_OC[i].enabled:
+						attack_queue_AI[i] = -1
+
+
 				party_A_path = dynamics.create_party_image(party_A_OC)
 				await message.channel.send(user_text, file=discord.File(party_A_path))
 				
-				party_B_OC = field.get_party(1)
+				party_A_HP = party_A_OC[0].get_HP() + spacing + party_A_OC[1].get_HP() + spacing + party_A_OC[2].get_HP() + '\n'
+				
 				party_B_path = dynamics.create_party_image(party_B_OC)
-				await message.channel.send(vs_divider + ai_text, file=discord.File(party_B_path))
+				await message.channel.send(party_A_HP + vs_divider + ai_text, file=discord.File(party_B_path))
+				
+				party_B_HP = party_B_OC[0].get_HP() + spacing + party_B_OC[1].get_HP() + spacing + party_B_OC[2].get_HP() + '\n'
 
 				turn_order = field.calculate_turns()
 				turn_order_path = dynamics.create_party_image(turn_order)
-				await message.channel.send(divider_emoji + turn_order_text, file=discord.File(turn_order_path))
+				await message.channel.send(party_B_HP + divider_emoji + turn_order_text, file=discord.File(turn_order_path))
 
 				# Check if valid attack command
 				# !oc 1 front|back
@@ -104,23 +118,21 @@ class OC_Client(discord.Client):
 					# Check if command is in proper format
 					if m.content.startswith('!oc ') and len(split_message) == 3 and split_message[1].isnumeric() and int(split_message[1]) in [1, 2, 3]:
 						card_position = int(split_message[1]) - 1  # Offset
-						attack_location = split_message[2]
-						
-						if attack_location == 'front':
-							attack_queue_A[card_position] = 0
-							return True
+						if attack_queue_A[card_position] is not -1:
+							attack_location = split_message[2]
+							
+							if attack_location == 'front':
+								attack_queue_A[card_position] = 0
+								return True
 
-						elif attack_location == 'back':
-							attack_queue_A[card_position] = 1
-							return True
-						
+							elif attack_location == 'back':
+								attack_queue_A[card_position] = 1
+								return True
 					return False
 
 				# Read user response and act accordingly based on input
 				while None in attack_queue_A:
 					try:
-						#await message.channel.send('DEBUG: Next round. Type in **go** within 30 seconds to continue to the next round.')
-						#response = await self.wait_for('message', check=go_check, timeout=30.0)
 						await message.channel.send('DEBUG: You have 60 seconds to input your attack commands [!oc 1|2|3 front|back].')
 						response = await self.wait_for('message', check=attack_check, timeout=60.0)
 						if attack_check(response):
@@ -128,26 +140,81 @@ class OC_Client(discord.Client):
 							card_pos = int(attack_str[1]) - 1  # Offset
 							attack_pos = attack_queue_A[card_pos]
 							attack_append = None
+							curr_card = party_A_OC[card_pos]
 							if attack_pos == 0:
 								attack_append = 'frontline!'
+								curr_card.target(0)
 							else:
 								attack_append = 'backline!'
-							await message.channel.send('**' + party_A_OC[card_pos].name + ' (' + message.author.name + ')** is set to attack the ' + attack_append)
+								curr_card.target(1)
+							
+							await message.channel.send('**' + curr_card.name + ' (' + message.author.name + ')** ' + str(curr_card.current_HP) + '/' + str(curr_card.max_HP) + ' is set to attack the ' + attack_append)
 					except asyncio.TimeoutError:
 						is_battling = False
 						await message.channel.send('DEBUG: 60 second timeout has been reached.')
 			
 				# Trash placeholder code to print 
+				await message.channel.send('-----------------------------------------')
 				for i in range(len(party_B_OC)):
 					attack_pos = attack_queue_AI[i]
-					attack_append = None
-					if attack_pos == 0:
-						attack_append = 'frontline!'
-					else:
-						attack_append = 'backline!'
-					await message.channel.send('**' + party_B_OC[i].name + ' (AI)** is set to attack the ' + attack_append)
+					if attack_pos is not -1:
+						attack_append = None
+						curr_card = party_B_OC[i]
 
-				await message.channel.send(divider_emoji + '__**NEW TURN**__\n' + divider_emoji)
+						if attack_pos == 0:
+							attack_append = 'frontline!'
+							curr_card.target(0)
+						else:
+							attack_append = 'backline!'
+							curr_card.target(1)
+							
+						await message.channel.send('**' + party_B_OC[i].name + ' (AI)** ' + str(curr_card.current_HP) + '/' + str(curr_card.max_HP) + ' is set to attack the ' + attack_append)
+
+				# Calculate attack here
+				await message.channel.send('-----------------------------------------\n**ATTACK RESULTS:**')
+				for oc in turn_order:
+					if oc.enabled:
+						enemy_party, color, enemy_color = None, None, None
+						if oc.owner == 'A':
+							enemy_party = party_B_OC
+							color = ':red_circle:'
+							enemy_color = ':blue_circle:'
+						elif oc.owner == 'B':
+							enemy_party = party_A_OC
+							color = ':blue_circle:'
+							enemy_color = ':red_circle:'
+						target_OC = None
+						if oc.current_target == 0:
+							target_OC = enemy_party[0]
+						elif oc.current_target == 1:
+							back_target_index = random.randrange(0, 2) + 1
+							target_OC = enemy_party[back_target_index]  # Random backline target
+						target_defeated = oc.attack(target_OC)
+						attack_string = oc.name + ' ' + color + ' hits ' + target_OC.name + ' ' + enemy_color + ' for **' + str(oc.ATK) + ' DAMAGE!** (' + str(target_OC.current_HP) + '/' + str(target_OC.max_HP) + ')'
+						await message.channel.send(attack_string)
+						if target_defeated:
+							await message.channel.send(target_OC.name + ' ' + enemy_color + ' has been **DEFEATED!**')
+							target_OC.enabled = False
+				
+				# Check victory condition for A
+				num_defeated = 0
+				for oc_A in party_A_OC:
+					if not oc_A.enabled:
+						num_defeated += 1
+				if num_defeated is 3:
+					is_battling = False
+					await message.channel.send('AI :blue_circle: **WINS!**')
+				# Check again for B
+				num_defeated = 0
+				for oc_B in party_B_OC:
+					if not oc_B.enabled:
+						num_defeated += 1
+				if num_defeated is 3:
+					is_battling = False
+					await message.channel.send(message.author.name + ' :red_circle: **WINS!**')
+					
+				if is_battling:
+					await message.channel.send(divider_emoji + '__**NEW TURN**__\n' + divider_emoji)
 
 			return True
 		return False

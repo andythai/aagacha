@@ -18,13 +18,13 @@ class Battle:
 		self.front_B, self.back1_B, self.back2_B = party_B
 		
 		# Generate the cards
-		self.front_A = oc.OC(data, party_A[0])
-		self.back1_A = oc.OC(data, party_A[1])
-		self.back2_A = oc.OC(data, party_A[2])
+		self.front_A = oc.OC(data, party_A[0], 'A')
+		self.back1_A = oc.OC(data, party_A[1], 'A')
+		self.back2_A = oc.OC(data, party_A[2], 'A')
 		
-		self.front_B = oc.OC(data, party_B[0])
-		self.back1_B = oc.OC(data, party_B[1])
-		self.back2_B = oc.OC(data, party_B[2])
+		self.front_B = oc.OC(data, party_B[0], 'B')
+		self.back1_B = oc.OC(data, party_B[1], 'B')
+		self.back2_B = oc.OC(data, party_B[2], 'B')
 		return
 	
 	"""Function to calculate which OCs go first. Returns a queue of which OCs turn order"""
@@ -36,6 +36,9 @@ class Battle:
 		# Break same luck tiebreakers with a 50% roll.
 		turn_order = self.get_party(0) + self.get_party(1)
 		turn_order.sort(key=lambda x: x.SPD, reverse=True)  # Basic sorting, no tiebreaker
+		for oc in turn_order:
+			if not oc.enabled:
+				turn_order.remove(oc)
 		
 		# Order by OCs with fast actions in order of highest to lowest speed
 		# Break same speed tiebreakers by looking at luck

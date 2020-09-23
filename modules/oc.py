@@ -1,11 +1,12 @@
 class OC:
 	"""Class to represent an OC instance in battle."""
-	def __init__(self, data=None, ID=None):
+	def __init__(self, data=None, ID=None, owner=None):
 		# OC card stats and information
-		self.name = ""      # String representation of OC name
-		self.owner = ""     # User
-		self.stars = None	# Number of stars / rarity
-		self.oc_ID = None   # ID number of OC in dex
+		self.name = ""       # String representation of OC name
+		self.owner = owner   # User
+		self.stars = None	 # Number of stars / rarity
+		self.oc_ID = None    # ID number of OC in dex
+		self.enabled = True  # Can battle or is defeated
 		
 		# Quantitative stats, affected by modifiers
 		self.current_HP, self.max_HP  = None, None
@@ -20,6 +21,9 @@ class OC:
 		
 		# Abilities are ID references to functions in a separate file
 		self.ability1, self.ability2 = None, None
+		
+		# Current target (0: frontline, 1: backline)
+		self.current_target = None
 		
 		# Load in stats if valid information is provided to constructor.
 		if data and ID is not None:  
@@ -51,6 +55,22 @@ class OC:
 		self.ability2 = data[ID]['ability2']  # Special
 		
 		return
+	
+	def target(self, pos):
+		"""Sets the OC to target frontline (0) or backline (1, 2)"""
+		self.current_target = pos
+	
+	def attack(self, target):
+		"""Attacks a target OC. Return False if target is alive, True if defeated"""
+		target.current_HP = target.current_HP - self.ATK
+		if target.current_HP < 0:
+			target.current_HP = 0
+			return True
+		return False
+	
+	def get_HP(self):
+		""" Return the HP ratio """
+		return str(self.current_HP) + '/' + str(self.max_HP)
 	
 	def show_current_stats(self):
 		"""Function to generate a string description for Discord output. 
