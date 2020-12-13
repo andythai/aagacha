@@ -8,4 +8,4 @@ discord.py - pip install discord.py,
 
 opencv - pip install opencv-python, 
 
-then navigate to this directory using the Anaconda prompt. Execute the bot software with python run.py to initialize the bot in the AniAnt bot server.
+Download the env file from the discord #programming channel, and move it to the base directory. Rename it from env to .env. Then navigate to this base directory using the Anaconda prompt. Execute the bot software with python run.py to initialize the bot in the AniAnt bot server.
