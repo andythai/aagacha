@@ -32,6 +32,12 @@ class OC_Client(discord.Client):
 
     async def on_ready(self):
         """This function represents an asynchronous call for when the bot connects to the server."""
+        # Custom bot status for flavor
+        discord_status = 'you get paid in exposure'
+        discord_activity = discord.Activity(name=discord_status, type=discord.ActivityType.watching)
+        await self.change_presence(activity=discord_activity)
+        
+        # Print out potentially important information to the console.
         print('\nInitiating OC Battle Bot.\n\nBot credentials:')
         print('------------------------------------')
         print('USERNAME: ' + self.user.name)
