@@ -1,15 +1,19 @@
+from modules.mechanics.oc import OC
+from modules.mechanics.battlefield import Battlefield
+from modules.mechanics.party import Party
+from modules.mechanics.action import Action
+
+from modules.processing import data_processing
+from modules.processing import dynamics
+
 from typing import List, Set, Dict, Tuple, Optional
-
-from modules import data_processing
-from modules import oc
-from modules import battle
-from modules import dynamics
-
 import os
 import discord
 from dotenv import load_dotenv
 import asyncio
 import random
+import re
+
 
 # Load ENV variables (global)
 load_dotenv()
@@ -91,6 +95,19 @@ class OC_Client(discord.Client):
         :return: True if the call was successful, False otherwise or if invalid input is given.
         """
         
+        # Constant text strings to help format the message board.
+        player_name = message.author.name
+        player_ID = str(message.author.id)
+        AI_name = 'AI'
+        AI_ID = 'AI'
+        divider_emoji = ':black_small_square:' * 14 + '\n'
+        user_text = ':red_circle::red_circle: **' + player_name + '\'s Party** :red_circle::red_circle:'
+        vs_divider = ':black_small_square:' * 7 + '\n' + ':black_small_square:' * 3 + \
+                     ':vs:' + ':black_small_square:' * 3 + '\n' + ':black_small_square:' * 7 + '\n'
+        ai_text = ':blue_circle::blue_circle: **AI Party** :blue_circle::blue_circle:'
+        turn_order_text = ':timer: **TURN ORDER:**'
+        spacing = ' ' * 28
+        
         # TODO: Currently the function can have multiple simultaneous calls, which normally isn't an issue
         # since multiple games can occur, but multiple games can be called by the same person and clutter the
         # text. This is currently a minor issue since this bug needs to be deliberately triggered, and is unlikely to
@@ -98,200 +115,113 @@ class OC_Client(discord.Client):
         # Additionally, parts of this code should probably be split up into a different module just for conducting
         # the battle system to ensure code cleanliness.
         if message.content.startswith('!oc battle'):
-            await message.channel.send('TEST: Deploying pre-generated battlefield.')
-            
-            # Constant text strings to help format the message board.
-            divider_emoji = ':black_small_square:' * 14 + '\n'
-            user_text = ':red_circle::red_circle: **' + message.author.name + '\'s Party** :red_circle::red_circle:'
-            vs_divider = ':black_small_square:' * 7 + '\n' + ':black_small_square:' * 3 + \
-                         ':vs:' + ':black_small_square:' * 3 + '\n' + ':black_small_square:' * 7 + '\n'
-            ai_text = ':blue_circle::blue_circle: **AI Party** :blue_circle::blue_circle:'
-            turn_order_text = ':timer: **TURN ORDER:**'
-            spacing = ' ' * 28
-            
+
             # Here, we set up the battlefield with some preset battle parameters
-            party_A = [5, 8, 2]  # A hardcoded list of IDs to help test functionality. This will be changed later.
-            party_B = [4, 3, 0]
-            field = battle.Battle(OC_DATA, party_A, party_B)
+            await message.channel.send('Deploying pre-generated battlefield.')
+            _party_A = [OC(OC_DATA, 5), OC(OC_DATA, 8), OC(OC_DATA, 2)]  # A hardcoded list of IDs to help test functionality. This will be changed later.
+            _party_B = [OC(OC_DATA, 4), OC(OC_DATA, 3), OC(OC_DATA, 0)]
+            player_party = Party(_party_A, player_name, player_ID)
+            AI_party = Party(_party_B, AI_name, AI_ID)
+            field = Battlefield(OC_DATA, player_party, AI_party)
 
             # Create a loop that continues the battle until a victory condition is reached.
             battle_loop_on = True
             while battle_loop_on:
-            
-                # Pre-initialize the attack queue here to avoid crashes later.
-                # The attack queue keeps track of who is targetting whom. There is an attack queue
-                # for each user, such that _A refers to which enemy positions are player A's cards targetting.
-                # For example: [0, 1, 1] means that A's frontline card is targetting the enemy frontline, and
-                # A's back1 and back2 cards (respectively) are targetting back1. The index value is set to -1
-                # if the card at that position has been defeated. 
-                # Array indices correspond to 0: front, 1: back1, 2: back2, -1: index is defeated
-                attack_queue_A = [None, None, None]
-                attack_queue_AI = [0, 0, 0]
-                
-                # Generate the battlefield for both users.
-                party_A_OC = field.get_party(0)
-                party_B_OC = field.get_party(1)
-                
-                # Check if any of the OCs in the party for both players have been defeated. If so,
-                # set their value in the attack queue to -1 so they cannot make an action.
-                for i in range(len(party_A_OC)):
-                    if not party_A_OC[i].enabled:
-                        attack_queue_A[i] = -1
-                    if not party_B_OC[i].enabled:
-                        attack_queue_AI[i] = -1
 
-                # Dynamically generate the party image and stats for both players here.
-                party_A_path = dynamics.create_party_image(party_A_OC)
-                await message.channel.send(user_text, file=discord.File(party_A_path))
-                party_A_HP = party_A_OC[0].get_HP() + spacing + party_A_OC[1].get_HP() + spacing + party_A_OC[2].get_HP() + '\n'
-                
-                party_B_path = dynamics.create_party_image(party_B_OC)
-                await message.channel.send(party_A_HP + vs_divider + ai_text, file=discord.File(party_B_path))
-                party_B_HP = party_B_OC[0].get_HP() + spacing + party_B_OC[1].get_HP() + spacing + party_B_OC[2].get_HP() + '\n'
-
+                # Calculate the new party order and turn order (these are lists of OC objects)
+                player_OCs = player_party.get_OCs()
+                AI_OCs = AI_party.get_OCs()
                 turn_order = field.calculate_turns()
-                turn_order_path = dynamics.create_party_image(turn_order)
-                await message.channel.send(party_B_HP + divider_emoji + turn_order_text, file=discord.File(turn_order_path))
 
-                # Check if valid attack command
-                
-                def _attack_check(m):
-                    """Internal function inside battle_func to help check if user input is a valid command.
+                # Dynamically generate the party images and stats for both players here and print out the HP stats in the Discord channel.
+                player_party_img_path = dynamics.create_party_image(player_OCs)
+                await message.channel.send(user_text, file=discord.File(player_party_img_path))
+                AI_party_img_path = dynamics.create_party_image(AI_OCs)
+                await message.channel.send(player_party.get_HP_string() + vs_divider + ai_text, file=discord.File(AI_party_img_path))
+                turn_order_img_path = dynamics.create_party_image(turn_order)
+                await message.channel.send(AI_party.get_HP_string() + divider_emoji + turn_order_text, file=discord.File(turn_order_img_path))
 
-                    :return: True if a valid command is sent, False otherwise.
-                    """
+                # Here, the bot reads in user response mid-round, and acts accordingly based on input
+                await message.channel.send('Input your attack commands [!oc 1|2|3 front|back].')
+                while not player_party.is_selection_done():  # Repeat while there are still OCs that still need to move.
+                    print('1 - DEBUG: Waiting for message.')
+                    
+                    response = await self.wait_for('message')
+                    
+                    print('2 - DEBUG: Received user message.')
+                    print(str(response.content))
+                    
+                    # If the user sents in a valid response, set the card to attack their target shortly.
                     # Check if the bot is checking against itself to avoid infinite loops.
-                    if m.author.id == self.user.id:  
+                    if response.author.id == self.user.id:  
                         return False
 
                     # Preprocess and check if the command is in proper format
-                    split_message = str(m.content).split()
+                    split_message = str(response.content).split()
 
-                    # !oc 1 front|back
-                    if m.content.startswith('!oc ') and len(split_message) == 3 and split_message[1].isnumeric() and int(split_message[1]) in [1, 2, 3]:
-                        card_position = int(split_message[1]) - 1    # Offset -1 here since indexing starts at zero.
-                        if attack_queue_A[card_position] is not -1:  # Check if card is still active and not defeated.
-                            attack_location = split_message[2]
-                            
-                            # Now set the target for the OC in the corresponding attack queue.
-                            if attack_location == 'front':
-                                attack_queue_A[card_position] = 0
-                                return True
-                            elif attack_location == 'back':
-                                attack_queue_A[card_position] = 1
-                                return True
-                    return False
-
-                # Here, the bot reads in user response mid-round, and acts accordingly based on input
-                while None in attack_queue_A:  # Repeat while there are still OCs that still need to move.
-                    try:
-                        await message.channel.send('DEBUG: You have 60 seconds to input your attack commands [!oc 1|2|3 front|back].')
-                        response = await self.wait_for('message', check=_attack_check, timeout=60.0)
-                        
-                        # If the user sents in a valid response, set the card to attack their target shortly.
-                        if _attack_check(response):
-                            attack_str = response.content.split()
-                            card_pos = int(attack_str[1]) - 1  # Offset
-                            attack_pos = attack_queue_A[card_pos]
-                            attack_append = None
-                            curr_card = party_A_OC[card_pos]
-                            if attack_pos == 0:
-                                attack_append = 'frontline!'
-                                curr_card.target(0)
-                            else:
-                                attack_append = 'backline!'
-                                curr_card.target(1)
-                            
-                            await message.channel.send('**' + curr_card.name + ' (' + message.author.name + ')** ' + str(curr_card.current_HP) + '/' + str(curr_card.max_HP) + ' is set to attack the ' + attack_append)
-                    except asyncio.TimeoutError:  # This is just here in case we want to implement a timer on user moves later.
-                        battle_loop_on = False
-                        await message.channel.send('DEBUG: 60 second timeout has been reached.')
-                        return False
-            
-                # This prints out the same confirmation messages, but for the AI's actions.
-                await message.channel.send('-----------------------------------------')
-                for i in range(len(party_B_OC)):
-                    attack_pos = attack_queue_AI[i]
-                    if attack_pos is not -1:
-                        attack_append = None
-                        curr_card = party_B_OC[i]
-
-                        if attack_pos == 0:
-                            attack_append = 'frontline!'
-                            curr_card.target(0)
-                        else:
-                            attack_append = 'backline!'
-                            curr_card.target(1)
-                            
-                        await message.channel.send('**' + party_B_OC[i].name + ' (AI)** ' + str(curr_card.current_HP) + \
-                                                   '/' + str(curr_card.max_HP) + ' is set to attack the ' + attack_append)
+                    # Prompt input from the user and set the targets based on the user response.
+                    # Format: !oc 1|2|3 front|back
+                    print('3 - DEBUG: Checking response content.')
+                    if response.content.startswith('!oc ') and len(split_message) == 3 and split_message[1].isnumeric() and int(split_message[1]) in [1, 2, 3]:
+                        card_index = int(split_message[1]) - 1       # Offset -1 here since indexing starts at zero.
+                        attack_string = split_message[2]             # String (front or back)
+                        current_OC = player_OCs[card_index]
+                        if not current_OC.is_defeated():
+                            target_string = '**' + current_OC.get_owner_nickname() + ':** ' + current_OC.get_name() + ' is set to attack ' 
+                            if attack_string == 'front':
+                                current_OC.set_target(0)
+                                target_string += 'the frontline!'
+                                await message.channel.send(target_string)
+                            elif attack_string == 'back':
+                                current_OC.set_target(AI_party.get_random_backline())
+                                target_string += 'the backline!'
+                                await message.channel.send(target_string)
+                    print('4 - DEBUG: Response content checked.')
+                print('5 - DEBUG: All party members have selected a target.')
+                
+                # Have the AI randomly attack targets.
+                AI_attack_pattern = []
+                for AI_OC in AI_OCs:
+                    attack_index = player_party.get_random()
+                    AI_OC.set_target(attack_index)
+                    AI_attack_string = '**AI:** ' + AI_OC.get_name() + ' is set to attack the '
+                    if attack_index is 0:
+                        AI_attack_string += ('frontline!\n')
+                    else:
+                        AI_attack_string += ('backline!\n')
+                    if not AI_OC.is_defeated():
+                        AI_attack_pattern.append(AI_attack_string)
+                await message.channel.send('-----------------------------------------\n' + ''.join(AI_attack_pattern))
 
                 # When the bot reaches this point, it does the actual attacking and calculation here.
                 # Once the attacks are done, the results are then calculated and printed.
                 await message.channel.send('-----------------------------------------\n**ATTACK RESULTS:**')
-                
-                # Goes in order based on which OC is the fastest or first in the turn queue order.
                 for oc in turn_order:
-                    if oc.enabled:  # Only do this is the OC is still alive and not defeated. 
-                        enemy_party, color, enemy_color = None, None, None
+                    if not oc.is_defeated():
+                        act = Action(field, oc, oc.target)
+                        field.add(act)
                         
-                        # Set a color identifier based on which player is attacking.
-                        if oc.owner == 'A':
-                            enemy_party = party_B_OC
-                            color = ':red_circle:'
-                            enemy_color = ':blue_circle:'
-                        elif oc.owner == 'B':
-                            enemy_party = party_A_OC
-                            color = ':blue_circle:'
-                            enemy_color = ':red_circle:'
-                        target_OC = None
-                        
-                        # If the current target is in a frontline position, set the target.
-                        if oc.current_target == 0:
-                            target_OC = enemy_party[0]
-                        # Otherwise, the backline is targeted, so choose one of the two backline targets randomly.
-                        elif oc.current_target == 1:
-                            back_target_index = random.randrange(0, 2) + 1
-                            target_OC = enemy_party[back_target_index]  # Random backline target
-                            
-                        # Check if the target being attacked has been defeated from that attack.
-                        # target_defeated is True if so, False otherwise.
-                        target_defeated = oc.attack(target_OC)
-                        attack_string = oc.name + ' ' + color + ' hits ' + target_OC.name + ' ' + enemy_color + \
-                                        ' for **' + str(oc.ATK) + ' DAMAGE!** (' + str(target_OC.current_HP) + \
-                                        '/' + str(target_OC.max_HP) + ')'
-                        await message.channel.send(attack_string)
-                        
-                        # Print out the defeated message for the OC if it has been defeated by the previous attack.
-                        if target_defeated:
-                            await message.channel.send(target_OC.name + ' ' + enemy_color + ' has been **DEFEATED!**')
-                            target_OC.enabled = False
-                
-                # Check victory condition for player A.
-                num_defeated = 0
-                for oc_A in party_A_OC:
-                    if not oc_A.enabled:
-                        num_defeated += 1
-                        
+                action_strings = field.evaluate()
+                await message.channel.send(action_strings)
+
                 # If all of player A's OCs have been defeated, print out the victory condition for B.
-                if num_defeated is 3:
+                if player_party.is_defeated():
                     battle_loop_on = False  # End the game if one player has been defeated.
-                    await message.channel.send('AI :blue_circle: **WINS!**')
-                    
-                # Check the same victory condition for the AI / player B.
-                num_defeated = 0
-                for oc_B in party_B_OC:
-                    if not oc_B.enabled:
-                        num_defeated += 1
+                    await message.channel.send('AI :blue_circle: **WINS!**', file=discord.File('assets/AI/bot.png'))
                         
                 # Check if all of player B / AI's OCs have been defeated.
-                if num_defeated is 3:
+                elif AI_party.is_defeated():
                     battle_loop_on = False  # End the game if one player has been defeated.
-                    await message.channel.send(message.author.name + ' :red_circle: **WINS!**')
+                    await message.channel.send(':trophy:' * 3 + ' ' + message.author.name + ' :red_circle: **WINS!** ' + ':trophy:' * 3)
+                    await message.channel.send(message.author.avatar_url)
                     
                 # Continue the battle loop if the game has not ended yet (both players are still alive).
                 if battle_loop_on:
                     await message.channel.send(divider_emoji + '__**NEW TURN**__\n' + divider_emoji)
+                    
+                # Update the party status after a round has passed.
+                player_party.update()
+                AI_party.update()
 
             return True
         return False
@@ -309,8 +239,3 @@ class OC_Client(discord.Client):
             await message.channel.send(help_string)
             return True
         return False
-
-
-    async def error_notif(self, message):
-        """Placeholder function to notify Andy if something went wrong."""
-        await message.channel.send('@Andy#1159\'s code is trash. Fix this! :yandev:')

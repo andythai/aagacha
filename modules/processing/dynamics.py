@@ -22,7 +22,7 @@ def create_party_image(party: Tuple['oc.OC', 'oc.OC', 'oc.OC'], save_path: str =
             card_img = cv2.resize(card_img, (party_imgs[0].shape[1], party_imgs[0].shape[0]))
             
         # Tint red if OC card is defeated.
-        if not card.enabled:
+        if card.is_defeated():
             card_img[:, :, 0] = 0
             card_img[:, :, 1] = 0
             
