@@ -52,7 +52,7 @@ class OC_Client(discord.Client):
 
         # Then check if message is relevant to the OC game and pick the correct response.
         await self.check_dex_func(message)
-        await self.battle_func(message)
+        await self.AI_battle_func(message)
         await self.help_func(message)
 
 
@@ -83,7 +83,7 @@ class OC_Client(discord.Client):
         return False
 
 
-    async def battle_func(self, message: discord.Message) -> bool:
+    async def AI_battle_func(self, message: discord.Message) -> bool:
         """This function checks if the battle test function is called. This runs a sample player vs. AI game.
         
         This current version of the battle function is not modular, it serves as a test
@@ -117,7 +117,7 @@ class OC_Client(discord.Client):
         if message.content.startswith('!oc battle'):
 
             # Here, we set up the battlefield with some preset battle parameters
-            await message.channel.send('Deploying pre-generated battlefield.')
+            await message.channel.send('Initializing a fight against an AI!')
             _party_A = [OC(OC_DATA, 5), OC(OC_DATA, 8), OC(OC_DATA, 2)]  # A hardcoded list of IDs to help test functionality. This will be changed later.
             _party_B = [OC(OC_DATA, 4), OC(OC_DATA, 3), OC(OC_DATA, 0)]
             player_party = Party(_party_A, player_name, player_ID)

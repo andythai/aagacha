@@ -1,8 +1,11 @@
 # Load action library
 from modules.abilities.offense import Offense
+from modules.abilities.support import Support
+from modules.abilities.status_effect import Status_Effect
+from modules.abilities.technical import Technical
 
 
-class Action(Offense):  # Put inheritances here.
+class Action(Offense, Support, Status_Effect, Technical):  # Put inheritances here.
     """Class to represent an action to perform mid-battle."""
 
     
