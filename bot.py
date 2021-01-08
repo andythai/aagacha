@@ -14,6 +14,8 @@ import asyncio
 import random
 import re
 
+import json
+
 
 # Load ENV variables (global)
 load_dotenv()
@@ -32,6 +34,7 @@ class OC_Client(discord.Client):
 
     async def on_ready(self):
         """This function represents an asynchronous call for when the bot connects to the server."""
+        
         # Custom bot status for flavor
         discord_status = 'you get paid in exposure'
         discord_activity = discord.Activity(name=discord_status, type=discord.ActivityType.watching)
@@ -64,6 +67,7 @@ class OC_Client(discord.Client):
         await self.AI_battle_func(message)
         await self.help_func(message)
         await self.tally_count(message)
+        await self.hello_func(message)
 
     async def on_reaction_add(self, reaction, user):
         """
@@ -265,3 +269,17 @@ class OC_Client(discord.Client):
         """This function will eventually print out how many points you have."""
         if message.content.startswith('!oc tally'):
             await message.channel.send('Functioning point system coming soon.')
+            
+    async def hello_func(self, message: discord.Message):
+        """This function adds a new user."""
+
+        # load users
+        with open('users.json') as f:
+            user_data = json.load(f)            
+        if message.content.startswith('!hello'):
+            if str(message.author.id) not in user_data:
+                user_data[str(message.author.id)] = {'name': str(message.author), 'deck':[], 'points':0}
+                with open('users.json', 'w') as f: # ToDo: use temp file, and rename for security
+                    json.dump(user_data, f, indent=4)
+                await message.channel.send('New user detected. Welcome {name}!'.format(name = user_data[str(message.author.id)]['name']))
+
