@@ -56,10 +56,23 @@ class OC_Client(discord.Client):
         if message.author.id == self.user.id:
             return
 
+        # Temporary. Prints message and author in console.
+        print('"{0}" has sent "{1}"!'.format(message.author, message.content))
+      
         # Then check if message is relevant to the OC game and pick the correct response.
         await self.check_dex_func(message)
         await self.AI_battle_func(message)
         await self.help_func(message)
+        await self.tally_count(message)
+
+    async def on_reaction_add(self, reaction, user):
+        """
+        As of now, when a reaction is added the bot responds with the name of the reactor. It also responds with
+        the author, ID, and contents of the message being reacted to.
+        """
+        channel = reaction.message.channel
+        await channel.send('Reaction added by {0} to {1}\'s message.\nMessage: {2}\nMessage ID: {3}'
+                           .format(user, reaction.message.author, reaction.message.content, reaction.message.id))
 
 
     async def check_dex_func(self, message: discord.Message) -> bool:
@@ -241,7 +254,14 @@ class OC_Client(discord.Client):
             OC_help_string = 'Welcome to OC Battle! Below you can find the list of commands:\n'
             OC_dex = '> !oc dex ID - Check the OCdex for the specific OC ID number.\n'
             OC_battle = '> !oc battle - Try a sample test battle against the AI.\n'
-            help_string = OC_help_string + OC_dex + OC_battle
+            OC_tally = '> !oc tally - (UNFINISHED) See how many gacha points you have.\n'
+            help_string = OC_help_string + OC_dex + OC_battle + OC_tally
             await message.channel.send(help_string)
             return True
         return False
+
+
+    async def tally_count(self, message: discord.Message):
+        """This function will eventually print out how many points you have."""
+        if message.content.startswith('!oc tally'):
+            await message.channel.send('Functioning point system coming soon.')
